@@ -483,6 +483,10 @@ function etiqueta(campo) {
         campo.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
+// Credenciales cargadas desde /api/config (nunca en el HTML)
+let SUPA_URL = '';
+let SUPA_KEY = '';
+
 // ─── CONFIG CAPAS ────────────────────────────────────────────────
 const CONFIG = {
     snap_ecu: { color: '#1b7837', nombre: 'SNAP' },
@@ -501,7 +505,10 @@ function setStatus(tabla, html) {
 async function cargarCapa(tabla) {
     const { color, nombre } = CONFIG[tabla];
     try {
-        const r = await fetch(`/api/capa?tabla=${tabla}`);
+        const r = await fetch(
+            `${SUPA_URL}/rest/v1/${tabla}?select=*&limit=5000`,
+            { headers: { apikey: SUPA_KEY, Authorization: `Bearer ${SUPA_KEY}` } }
+        );
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const datos = await r.json();
 
@@ -619,9 +626,16 @@ function toggleCapa(tabla, card) {
 // ─── INFO PANEL ──────────────────────────────────────────────────
 
 // ─── INICIO ──────────────────────────────────────────────────────
-cargarCapaTracked('snap_ecu');
-cargarCapaTracked('pfe_ecu');
-cargarCapaTracked('bvp_ecu');
+(async () => {
+    try {
+        const cfg = await fetch('/api/config').then(r => r.json());
+        SUPA_URL = cfg.url;
+        SUPA_KEY = cfg.key;
+    } catch (_) {}
+    cargarCapaTracked('snap_ecu');
+    cargarCapaTracked('pfe_ecu');
+    cargarCapaTracked('bvp_ecu');
+})();
 
 </script>
 </body>
