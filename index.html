@@ -269,6 +269,47 @@ header h1 span {
 .basemap-btn:hover { border-color: #4a5570; color: var(--text-light); }
 .basemap-btn.active { background: #2e3a5a; border-color: #4a6fa5; color: var(--text-light); }
 
+/* ─── POPUP ─── */
+.leaflet-popup-content-wrapper {
+    border-radius: 6px;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.25);
+    padding: 0;
+}
+.leaflet-popup-content {
+    margin: 0;
+    min-width: 200px;
+    max-width: 280px;
+}
+.popup-header {
+    background: #1b7837;
+    color: white;
+    font-weight: 700;
+    font-size: 12px;
+    padding: 7px 12px;
+    border-radius: 6px 6px 0 0;
+    letter-spacing: .3px;
+}
+.popup-body {
+    padding: 8px 12px;
+}
+.popup-body table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+.popup-body td {
+    padding: 3px 0;
+    vertical-align: top;
+    line-height: 1.4;
+}
+.popup-body td:first-child {
+    font-weight: 600;
+    color: #555;
+    padding-right: 10px;
+    white-space: nowrap;
+    width: 45%;
+}
+
 /* ─── ATRIBUCION ─── */
 .leaflet-control-attribution { font-size: 9px !important; }
 </style>
@@ -420,6 +461,34 @@ function setBasemap(id, btn) {
     btn.classList.add('active');
 }
 
+// ─── ETIQUETAS DE CAMPOS ─────────────────────────────────────────
+const ETIQUETAS = {
+    id:     'ID',
+    fcode:  'Código FGDC',
+    nam:    'Nombre',
+    are:    'Área (ha)',
+    per:    'Perímetro',
+    ror:    'Resolución original',
+    rom:    'Modificación',
+    esc:    'Escala',
+    tpevl:  'Estado de evaluación',
+    txt:    'Descripción',
+    csnap:  'Código SNAP',
+    map:    'Categoría de manejo',
+    psj:    'Paisaje',
+    subap:  'Subtipo',
+    edel:   'Estado',
+    dnfcod: 'Código DNF',
+    coddnf: 'Código DNF',
+    tpbsq:  'Tipo de bosque',
+    nombre: 'Nombre alternativo',
+};
+
+function etiqueta(campo) {
+    return ETIQUETAS[campo] ||
+        campo.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
 // ─── CONFIG CAPAS ────────────────────────────────────────────────
 const CONFIG = {
     snap_ecu: { color: '#1b7837', nombre: 'SNAP' },
@@ -484,7 +553,26 @@ async function cargarCapa(tabla) {
                     color: '#fff', weight: 1, fillOpacity: 0.9
                 }),
                 onEachFeature: (feature, layer) => {
-                    layer.on('click', () => mostrarInfo(tabla, nombre, feature.properties));
+                    const excluir = new Set(['geom','geometry','geojson','id','fcode']);
+                    const props = feature.properties;
+
+                    // Popup en el mapa
+                    let filas = '';
+                    for (const k in props) {
+                        if (excluir.has(k)) continue;
+                        const v = props[k];
+                        if (v === null || v === undefined || v === '') continue;
+                        filas += `<tr><td>${etiqueta(k)}</td><td>${v}</td></tr>`;
+                    }
+                    const color = CONFIG[tabla].color;
+                    const popupHTML =
+                        `<div class="popup-header" style="background:${color}">${nombre}</div>
+                         <div class="popup-body"><table>${filas}</table></div>`;
+                    layer.bindPopup(popupHTML, { maxWidth: 300 });
+
+                    // Panel lateral al hacer clic
+                    layer.on('click', () => mostrarInfo(tabla, nombre, props));
+
                     layer.on('mouseover', function() {
                         this.setStyle?.({ fillOpacity: 0.65, weight: 2.5 });
                     });
@@ -539,16 +627,19 @@ function toggleCapa(tabla, card) {
 
 // ─── INFO PANEL ──────────────────────────────────────────────────
 function mostrarInfo(tabla, nombre, props) {
-    const excluir = new Set(['geom','geometry','geojson']);
+    const excluir = new Set(['geom','geometry','geojson','id','fcode']);
     let rows = '';
     for (const k in props) {
         if (excluir.has(k)) continue;
-        const v = props[k] === null || props[k] === undefined ? '—' : props[k];
-        rows += `<tr><td>${k}</td><td>${v}</td></tr>`;
+        const v = props[k];
+        if (v === null || v === undefined || v === '') continue;
+        rows += `<tr><td>${etiqueta(k)}</td><td>${v}</td></tr>`;
     }
     document.getElementById('info-content').innerHTML =
-        `<div style="color:var(--text-light);font-weight:700;margin-bottom:6px">${nombre}</div>
+        `<div style="color:var(--text-light);font-weight:700;margin-bottom:8px;
+          border-bottom:1px solid var(--border);padding-bottom:6px">${nombre}</div>
          <table>${rows}</table>`;
+    document.getElementById('info-panel').scrollIntoView({ behavior: 'smooth' });
 }
 
 // ─── INICIO ──────────────────────────────────────────────────────
