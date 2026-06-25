@@ -182,7 +182,10 @@ header h1 span { font-weight: 400; color: var(--text-muted); margin-left: 6px; f
     flex-shrink: 0; min-width: 180px; max-width: 220px;
     background: #1e2535; border: 1px solid var(--border);
     border-radius: 5px; padding: 8px 10px; font-size: 11px;
+    cursor: pointer; transition: border-color .15s, background .15s;
 }
+.resultado-card:hover  { border-color: #4a5570; background: #222c40; }
+.resultado-card.destacado { border-color: #6fcf97; background: #1a2e20; }
 .card-nombre {
     font-weight: 700; color: var(--text-light);
     font-size: 12px; margin-bottom: 5px; line-height: 1.3;
@@ -491,7 +494,7 @@ async function cargarCapa(tabla) {
             let center;
             try { center = layer.getBounds().getCenter(); }
             catch (_) { try { center = layer.getLatLng(); } catch (_) {} }
-            if (center) featureIndex[tabla].push({ props: layer.feature.properties, center });
+            if (center) featureIndex[tabla].push({ props: layer.feature.properties, center, layer });
         });
 
         capas[tabla] = capa;
@@ -534,6 +537,7 @@ async function toggleCapa(tabla, card) {
 
 // ─── CONSULTA POR PUNTO ──────────────────────────────────────────
 let modoConsulta = false;
+let resultadosActuales = []; // [{ cardId, tabla, layer }]
 
 function toggleConsulta() {
     modoConsulta = !modoConsulta;
@@ -563,6 +567,7 @@ function consultarPunto(latlng) {
         if (!featureIndex[tabla] || !capas[tabla] || !map.hasLayer(capas[tabla])) continue;
         const conDist = featureIndex[tabla].map(f => ({
             props: f.props,
+            layer: f.layer,
             distancia: latlng.distanceTo(f.center)
         }));
         conDist.sort((a, b) => a.distancia - b.distancia);
@@ -579,9 +584,13 @@ function formatDist(m) {
 }
 
 function mostrarResultados(latlng, resultados) {
+    // Limpiar estado previo
+    resultadosActuales.forEach(r => capas[r.tabla]?.resetStyle(r.layer));
+    resultadosActuales = [];
+
     const panel = document.getElementById('panel-resultados');
-    const coords = `${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}`;
-    document.getElementById('panel-coords').textContent = `— ${coords}`;
+    document.getElementById('panel-coords').textContent =
+        `— ${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}`;
 
     let html = '';
     const tablas = Object.keys(resultados);
@@ -598,7 +607,9 @@ function mostrarResultados(latlng, resultados) {
             if (items.length === 0) {
                 cards = '<span class="sin-datos">Sin elementos en esta capa.</span>';
             } else {
-                items.forEach(({ props, distancia }) => {
+                items.forEach(({ props, layer, distancia }, idx) => {
+                    const cardId = `rc-${tabla}-${idx}`;
+                    resultadosActuales.push({ cardId, tabla, layer });
                     const nombreVal = props.nam || props.nombre || '—';
                     let camposHTML = '';
                     campos.filter(k => k !== 'nam').forEach(k => {
@@ -607,7 +618,10 @@ function mostrarResultados(latlng, resultados) {
                         camposHTML += `<div class="card-campo"><b>${etiqueta(k)}:</b> ${v}</div>`;
                     });
                     cards +=
-                        `<div class="resultado-card">
+                        `<div class="resultado-card" id="${cardId}"
+                              onmouseenter="destacarFeature('${cardId}')"
+                              onmouseleave="restaurarFeature('${cardId}')"
+                              onclick="irAFeature('${cardId}')">
                             <div class="card-nombre" title="${nombreVal}">${nombreVal}</div>
                             ${camposHTML}
                             <div class="card-dist">A ${formatDist(distancia)}</div>
@@ -629,7 +643,39 @@ function mostrarResultados(latlng, resultados) {
     panel.classList.add('visible');
 }
 
+function destacarFeature(cardId) {
+    const item = resultadosActuales.find(r => r.cardId === cardId);
+    if (!item) return;
+    document.getElementById(cardId)?.classList.add('destacado');
+    try {
+        item.layer.setStyle({ fillOpacity: 0.75, weight: 3, color: '#fff' });
+        item.layer.bringToFront?.();
+    } catch (_) {}
+}
+
+function restaurarFeature(cardId) {
+    const item = resultadosActuales.find(r => r.cardId === cardId);
+    if (!item) return;
+    document.getElementById(cardId)?.classList.remove('destacado');
+    try { capas[item.tabla]?.resetStyle(item.layer); } catch (_) {}
+}
+
+function irAFeature(cardId) {
+    const item = resultadosActuales.find(r => r.cardId === cardId);
+    if (!item) return;
+    try {
+        map.flyToBounds(item.layer.getBounds(), { padding: [60, 60], maxZoom: 13, duration: 0.8 });
+    } catch (_) {
+        try { map.flyTo(item.layer.getLatLng(), 13, { duration: 0.8 }); } catch (_) {}
+    }
+    setTimeout(() => item.layer.openPopup?.(), 900);
+}
+
 function cerrarPanel() {
+    resultadosActuales.forEach(r => {
+        document.getElementById(r.cardId)?.classList.remove('destacado');
+        try { capas[r.tabla]?.resetStyle(r.layer); } catch (_) {}
+    });
     document.getElementById('panel-resultados').classList.remove('visible');
 }
 
