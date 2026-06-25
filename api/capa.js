@@ -29,12 +29,13 @@ module.exports = async function handler(req, res) {
             return res.status(upstream.status).json({ error: 'Error al consultar Supabase.' });
         }
 
-        const data = await upstream.json();
+        const body = await upstream.text();
 
-        res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate');
-        res.status(200).json(data);
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
+        res.status(200).send(body);
 
     } catch (err) {
-        res.status(500).json({ error: 'Error interno del servidor.' });
+        res.status(500).json({ error: err.message });
     }
 };

@@ -388,12 +388,6 @@ header h1 span {
         </div>
       </div>
 
-      <div class="sidebar-section" id="info-panel">
-        <h2>Informacion</h2>
-        <div id="info-content" style="color:var(--text-muted);font-size:12px">
-          Haz clic en un elemento del mapa para ver sus atributos.
-        </div>
-      </div>
 
     </aside>
 
@@ -570,9 +564,6 @@ async function cargarCapa(tabla) {
                          <div class="popup-body"><table>${filas}</table></div>`;
                     layer.bindPopup(popupHTML, { maxWidth: 300 });
 
-                    // Panel lateral al hacer clic
-                    layer.on('click', () => mostrarInfo(tabla, nombre, props));
-
                     layer.on('mouseover', function() {
                         this.setStyle?.({ fillOpacity: 0.65, weight: 2.5 });
                     });
@@ -626,21 +617,6 @@ function toggleCapa(tabla, card) {
 }
 
 // ─── INFO PANEL ──────────────────────────────────────────────────
-function mostrarInfo(tabla, nombre, props) {
-    const excluir = new Set(['geom','geometry','geojson','id','fcode']);
-    let rows = '';
-    for (const k in props) {
-        if (excluir.has(k)) continue;
-        const v = props[k];
-        if (v === null || v === undefined || v === '') continue;
-        rows += `<tr><td>${etiqueta(k)}</td><td>${v}</td></tr>`;
-    }
-    document.getElementById('info-content').innerHTML =
-        `<div style="color:var(--text-light);font-weight:700;margin-bottom:8px;
-          border-bottom:1px solid var(--border);padding-bottom:6px">${nombre}</div>
-         <table>${rows}</table>`;
-    document.getElementById('info-panel').scrollIntoView({ behavior: 'smooth' });
-}
 
 // ─── INICIO ──────────────────────────────────────────────────────
 cargarCapaTracked('snap_ecu');
