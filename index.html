@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Geoportal Ambiental Ecuador</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+    --header-h: 52px;
+    --sidebar-w: 270px;
+    --snap-color: #1b7837;
+    --pfe-color:  #4393c3;
+    --bvp-color:  #d6604d;
+    --bg-sidebar: #1a1f2e;
+    --bg-header:  #0f1318;
+    --text-light: #e8edf2;
+    --text-muted: #8a95a3;
+    --border:     #2c3444;
+}
+
+html, body { height: 100%; overflow: hidden; font-family: 'Segoe UI', Arial, sans-serif; }
+
+#app {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+/* ─── HEADER ─── */
+header {
+    height: var(--header-h);
+    background: var(--bg-header);
+    display: flex;
+    align-items: center;
+    padding: 0 18px;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.header-icon {
+    width: 30px;
+    height: 30px;
+    background: var(--snap-color);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.header-icon svg { width: 18px; height: 18px; fill: white; }
+
+header h1 {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-light);
+    letter-spacing: .3px;
+}
+
+header h1 span {
+    font-weight: 400;
+    color: var(--text-muted);
+    margin-left: 6px;
+    font-size: 13px;
+}
+
+/* ─── LAYOUT ─── */
+#content {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+}
+
+/* ─── SIDEBAR ─── */
+#sidebar {
+    width: var(--sidebar-w);
+    background: var(--bg-sidebar);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex-shrink: 0;
+    border-right: 1px solid var(--border);
+}
+
+.sidebar-section {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+.sidebar-section h2 {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+}
+
+/* ─── LAYER CARDS ─── */
+.layer-card {
+    background: #222840;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    margin-bottom: 8px;
+    overflow: hidden;
+    transition: border-color .2s;
+}
+
+.layer-card:last-child { margin-bottom: 0; }
+
+.layer-header {
+    display: flex;
+    align-items: center;
+    padding: 10px 12px;
+    cursor: pointer;
+    gap: 10px;
+    user-select: none;
+}
+
+.layer-header:hover { background: rgba(255,255,255,.04); }
+
+.layer-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+.layer-name {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-light);
+    line-height: 1.2;
+}
+
+.layer-sub {
+    display: block;
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--text-muted);
+    margin-top: 1px;
+}
+
+.layer-toggle {
+    width: 36px;
+    height: 20px;
+    background: #3a4155;
+    border-radius: 10px;
+    position: relative;
+    transition: background .2s;
+    flex-shrink: 0;
+}
+
+.layer-toggle::after {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    background: white;
+    border-radius: 50%;
+    top: 3px;
+    left: 3px;
+    transition: left .2s;
+}
+
+.layer-card.active .layer-toggle {
+    background: var(--layer-color, #1b7837);
+}
+
+.layer-card.active .layer-toggle::after {
+    left: 19px;
+}
+
+.layer-status {
+    padding: 0 12px 10px;
+    font-size: 11px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.spinner {
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--border);
+    border-top-color: var(--text-muted);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    flex-shrink: 0;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.badge {
+    display: inline-block;
+    background: rgba(255,255,255,.08);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 10px;
+    color: var(--text-muted);
+}
+
+/* ─── MAPA INFO ─── */
+#info-panel {
+    padding: 14px 16px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+#info-panel h2 { margin-bottom: 8px; }
+
+#info-content {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.6;
+}
+
+#info-content table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#info-content td {
+    padding: 3px 0;
+    vertical-align: top;
+}
+
+#info-content td:first-child {
+    font-weight: 600;
+    color: var(--text-light);
+    padding-right: 8px;
+    white-space: nowrap;
+    width: 40%;
+}
+
+#info-content td:last-child {
+    word-break: break-word;
+}
+
+/* ─── MAPA ─── */
+#map { flex: 1; }
+
+/* ─── BASEMAP TOGGLE ─── */
+.basemap-row {
+    display: flex;
+    gap: 6px;
+}
+
+.basemap-btn {
+    flex: 1;
+    padding: 6px 4px;
+    font-size: 11px;
+    background: #222840;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    cursor: pointer;
+    text-align: center;
+    transition: all .15s;
+}
+
+.basemap-btn:hover { border-color: #4a5570; color: var(--text-light); }
+.basemap-btn.active { background: #2e3a5a; border-color: #4a6fa5; color: var(--text-light); }
+
+/* ─── ATRIBUCION ─── */
+.leaflet-control-attribution { font-size: 9px !important; }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <header>
+    <div class="header-icon">
+      <svg viewBox="0 0 24 24"><path d="M17 8C8 10 5.9 16.17 3.82 21.34L5.71 22l1-2.3A4.49 4.49 0 0 0 8 20C19 20 22 3 22 3c-1 2-8 2-9 8"/></svg>
+    </div>
+    <h1>Geoportal Ambiental <span>Ecuador</span></h1>
+  </header>
+
+  <div id="content">
+
+    <aside id="sidebar">
+
+      <div class="sidebar-section">
+        <h2>Capas</h2>
+
+        <div class="layer-card active" id="card-snap" style="--layer-color: var(--snap-color)"
+             onclick="toggleCapa('snap_ecu', this)">
+          <div class="layer-header">
+            <div class="layer-dot" style="background:var(--snap-color)"></div>
+            <div class="layer-name">
+              SNAP
+              <span class="layer-sub">Áreas Protegidas del Estado</span>
+            </div>
+            <div class="layer-toggle"></div>
+          </div>
+          <div class="layer-status" id="status-snap_ecu">
+            <div class="spinner"></div> Cargando...
+          </div>
+        </div>
+
+        <div class="layer-card active" id="card-pfe" style="--layer-color: var(--pfe-color)"
+             onclick="toggleCapa('pfe_ecu', this)">
+          <div class="layer-header">
+            <div class="layer-dot" style="background:var(--pfe-color)"></div>
+            <div class="layer-name">
+              PFE
+              <span class="layer-sub">Patrimonio Forestal del Estado</span>
+            </div>
+            <div class="layer-toggle"></div>
+          </div>
+          <div class="layer-status" id="status-pfe_ecu">
+            <div class="spinner"></div> Cargando...
+          </div>
+        </div>
+
+        <div class="layer-card active" id="card-bvp" style="--layer-color: var(--bvp-color)"
+             onclick="toggleCapa('bvp_ecu', this)">
+          <div class="layer-header">
+            <div class="layer-dot" style="background:var(--bvp-color)"></div>
+            <div class="layer-name">
+              BVP
+              <span class="layer-sub">Bosques y Veg. Protectores</span>
+            </div>
+            <div class="layer-toggle"></div>
+          </div>
+          <div class="layer-status" id="status-bvp_ecu">
+            <div class="spinner"></div> Cargando...
+          </div>
+        </div>
+
+      </div>
+
+      <div class="sidebar-section">
+        <h2>Mapa base</h2>
+        <div class="basemap-row">
+          <div class="basemap-btn active" onclick="setBasemap('osm', this)">Calles</div>
+          <div class="basemap-btn" onclick="setBasemap('topo', this)">Topo</div>
+          <div class="basemap-btn" onclick="setBasemap('sat', this)">Satelite</div>
+        </div>
+      </div>
+
+      <div class="sidebar-section" id="info-panel">
+        <h2>Informacion</h2>
+        <div id="info-content" style="color:var(--text-muted);font-size:12px">
+          Haz clic en un elemento del mapa para ver sus atributos.
+        </div>
+      </div>
+
+    </aside>
+
+    <div id="map"></div>
+
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
+
+<script>
+
+// ─── PROYECCIONES ───────────────────────────────────────────────
+proj4.defs('EPSG:32717', '+proj=utm +zone=17 +south +datum=WGS84 +units=m +no_defs');
+proj4.defs('EPSG:32718', '+proj=utm +zone=18 +south +datum=WGS84 +units=m +no_defs');
+proj4.defs('EPSG:32617', '+proj=utm +zone=17 +datum=WGS84 +units=m +no_defs');
+proj4.defs('EPSG:32618', '+proj=utm +zone=18 +datum=WGS84 +units=m +no_defs');
+proj4.defs('EPSG:3857',  '+proj=merc +a=6378137 +b=6378137 +lat_ts=0 +lon_0=0 +x_0=0 +y_0=0 +k=1 +units=m +no_defs');
+
+function convertirCoords(coords, epsg) {
+    if (typeof coords[0] === 'number') {
+        const [lon, lat] = proj4(epsg, 'EPSG:4326', [coords[0], coords[1]]);
+        if (!isFinite(lon) || !isFinite(lat) || lon < -180 || lon > 180 || lat < -90 || lat > 90) return null;
+        return [lon, lat];
+    }
+    const out = [];
+    for (const c of coords) {
+        const r = convertirCoords(c, epsg);
+        if (r === null) return null;
+        out.push(r);
+    }
+    return out;
+}
+
+function reprojectar(geom) {
+    const crsName = geom?.crs?.properties?.name;
+    if (!crsName || crsName === 'EPSG:4326') return geom;
+    const m = crsName.match(/EPSG:(\d+)/i);
+    if (!m || !proj4.defs('EPSG:' + m[1])) return geom;
+    const epsg = 'EPSG:' + m[1];
+    const coords = convertirCoords(geom.coordinates, epsg);
+    if (!coords) return null;
+    return { type: geom.type, coordinates: coords };
+}
+
+// ─── MAPA ────────────────────────────────────────────────────────
+const map = L.map('map', { zoomControl: true }).setView([-1.5, -78.0], 7);
+
+const basemaps = {
+    osm:  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+            { attribution: '© OpenStreetMap', maxZoom: 19 }),
+    topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+            { attribution: '© OpenTopoMap', maxZoom: 17 }),
+    sat:  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            { attribution: '© Esri', maxZoom: 19 })
+};
+
+basemaps.osm.addTo(map);
+
+function setBasemap(id, btn) {
+    Object.values(basemaps).forEach(b => map.removeLayer(b));
+    basemaps[id].addTo(map);
+    document.querySelectorAll('.basemap-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+}
+
+// ─── CONFIG CAPAS ────────────────────────────────────────────────
+const CONFIG = {
+    snap_ecu: { color: '#1b7837', nombre: 'SNAP' },
+    pfe_ecu:  { color: '#4393c3', nombre: 'PFE'  },
+    bvp_ecu:  { color: '#d6604d', nombre: 'BVP'  }
+};
+
+const capas = {};
+const grupoTotal = L.featureGroup().addTo(map);
+
+function setStatus(tabla, html) {
+    document.getElementById('status-' + tabla).innerHTML = html;
+}
+
+// ─── CARGA DE CAPAS ──────────────────────────────────────────────
+async function cargarCapa(tabla) {
+    const { color, nombre } = CONFIG[tabla];
+    try {
+        const r = await fetch(`/api/capa?tabla=${tabla}`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const datos = await r.json();
+
+        if (!Array.isArray(datos) || datos.length === 0) {
+            setStatus(tabla, 'Sin datos disponibles.');
+            return;
+        }
+
+        const features = [];
+        let saltados = 0;
+
+        datos.forEach(reg => {
+            let geom = reg.geom || reg.geometry || reg.geojson;
+            if (typeof geom === 'string') { try { geom = JSON.parse(geom); } catch (_) {} }
+
+            if (geom?.type) {
+                const g = reprojectar(geom);
+                if (g) features.push({ type: 'Feature', properties: reg, geometry: g });
+                else saltados++;
+            } else {
+                const lat = reg.lat ?? reg.latitude ?? reg.latitud;
+                const lon = reg.lon ?? reg.lng ?? reg.longitude ?? reg.longitud;
+                if (lat !== undefined && lon !== undefined) {
+                    features.push({
+                        type: 'Feature', properties: reg,
+                        geometry: { type: 'Point', coordinates: [parseFloat(lon), parseFloat(lat)] }
+                    });
+                }
+            }
+        });
+
+        if (features.length === 0) {
+            setStatus(tabla, 'No se pudo leer la geometría.');
+            return;
+        }
+
+        const capa = L.geoJSON(
+            { type: 'FeatureCollection', features },
+            {
+                style: { color, weight: 1.5, fillOpacity: 0.35, fillColor: color },
+                pointToLayer: (f, ll) => L.circleMarker(ll, {
+                    radius: 5, fillColor: color,
+                    color: '#fff', weight: 1, fillOpacity: 0.9
+                }),
+                onEachFeature: (feature, layer) => {
+                    layer.on('click', () => mostrarInfo(tabla, nombre, feature.properties));
+                    layer.on('mouseover', function() {
+                        this.setStyle?.({ fillOpacity: 0.65, weight: 2.5 });
+                    });
+                    layer.on('mouseout', function() {
+                        capa.resetStyle(this);
+                    });
+                }
+            }
+        );
+
+        capas[tabla] = capa;
+        capa.addTo(map);
+        capa.eachLayer(l => grupoTotal.addLayer(l));
+
+        const n = features.length;
+        const extra = saltados > 0 ? ` <span style="color:#d6604d">(${saltados} sin CRS)</span>` : '';
+        setStatus(tabla, `<span class="badge">${n} elementos</span>${extra}`);
+
+    } catch (err) {
+        setStatus(tabla, `<span style="color:#d6604d">Error: ${err.message}</span>`);
+        document.getElementById('card-' + tabla.replace('_ecu',''))?.classList.remove('active');
+    }
+}
+
+// Ajustar vista cuando todas las capas terminen de cargar
+let cargando = 3;
+const originalCargar = cargarCapa;
+async function cargarCapaTracked(tabla) {
+    await originalCargar(tabla);
+    cargando--;
+    if (cargando === 0) {
+        const layers = grupoTotal.getLayers();
+        if (layers.length > 0) {
+            try { map.fitBounds(grupoTotal.getBounds(), { padding: [20, 20] }); } catch (_) {}
+        }
+    }
+}
+
+// ─── TOGGLE CAPAS ────────────────────────────────────────────────
+function toggleCapa(tabla, card) {
+    const capa = capas[tabla];
+    if (!capa) return;
+
+    if (card.classList.contains('active')) {
+        card.classList.remove('active');
+        map.removeLayer(capa);
+    } else {
+        card.classList.add('active');
+        capa.addTo(map);
+    }
+}
+
+// ─── INFO PANEL ──────────────────────────────────────────────────
+function mostrarInfo(tabla, nombre, props) {
+    const excluir = new Set(['geom','geometry','geojson']);
+    let rows = '';
+    for (const k in props) {
+        if (excluir.has(k)) continue;
+        const v = props[k] === null || props[k] === undefined ? '—' : props[k];
+        rows += `<tr><td>${k}</td><td>${v}</td></tr>`;
+    }
+    document.getElementById('info-content').innerHTML =
+        `<div style="color:var(--text-light);font-weight:700;margin-bottom:6px">${nombre}</div>
+         <table>${rows}</table>`;
+}
+
+// ─── INICIO ──────────────────────────────────────────────────────
+cargarCapaTracked('snap_ecu');
+cargarCapaTracked('pfe_ecu');
+cargarCapaTracked('bvp_ecu');
+
+</script>
+</body>
+</html>
